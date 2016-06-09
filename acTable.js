@@ -159,7 +159,7 @@
         });
 
         function calculateStartEnd() {
-          scope.start = scope.page * scope.limit - scope.limit + 1;
+          scope.start = Math.max(scope.page * scope.limit - scope.limit + 1, 0) ;
           scope.end = Math.min(scope.page * scope.limit, scope.total);
         }
 
