@@ -25,6 +25,7 @@
         };
 
         this.reorder = function () {
+          console.log('reorder');
           $scope.onReorder();
         };
       }]
@@ -126,24 +127,26 @@
         scope.limit = scope.limit.toString() || "10";
         scope.limitOptions = scope.limitOptions || [5, 10, 15];
         scope.page = scope.page || 1;
-        scope.lastPage = Math.ceil(scope.total / scope.limit);
-        scope.pages = [];
+
+        calculateLastPage();
+
         scope.label = scope.label || {page: 'Page', of: 'of', rowsPerPage: 'Rows per Page', showing: 'Showing'};
 
         scope.$watch('total', function () {
           $timeout(function () {
             calculateLastPage();
             calculateStartEnd();
-            scope.goTo(1);
           });
         });
 
-        scope.$watch('limit', function () {
-          $timeout(function () {
-            calculateLastPage();
-            scope.onPaginate();
-            calculateStartEnd();
-          });
+        scope.$watch('limit', function (newVal, oldVal) {
+          if (newVal !== oldVal) {
+            $timeout(function () {
+              calculateLastPage();
+              scope.onPaginate();
+              calculateStartEnd();
+            });
+          }
         });
 
         function calculateLastPage() {
@@ -171,22 +174,18 @@
         };
 
         scope.next = function () {
-          console.log('Clicou');
           scope.goTo(scope.page + 1);
         };
 
         scope.previous = function () {
-          console.log('Clicou');
           scope.goTo(scope.page - 1);
         };
 
         scope.first = function () {
-          console.log('Clicou');
           scope.goTo(1);
         };
 
         scope.last = function () {
-          console.log('Clicou');
           scope.goTo(scope.lastPage);
         };
       }
