@@ -124,9 +124,14 @@
         label: '='
       },
       link: function (scope) {
-        scope.limit = scope.limit.toString() || "10";
+        scope.limit = scope.limit.toString() || '10';
         scope.limitOptions = scope.limitOptions || [5, 10, 15];
         scope.page = scope.page || 1;
+
+        function calculateLastPage() {
+          scope.lastPage = Math.ceil(scope.total / scope.limit);
+          scope.pages = calculatePages(scope.page, scope.lastPage);
+        }
 
         calculateLastPage();
 
@@ -148,11 +153,6 @@
             });
           }
         });
-
-        function calculateLastPage() {
-          scope.lastPage = Math.ceil(scope.total / scope.limit);
-          scope.pages = calculatePages(scope.page, scope.lastPage);
-        }
 
         scope.$watch('page', function () {
           $timeout(function () {
