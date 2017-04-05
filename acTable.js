@@ -1,13 +1,13 @@
 (function () {
   'use strict';
 
-  var app = angular.module('docnixMaterialApp');
+  var app = angular.module('willcrisis.angular-table', []);
 
-  app.directive('acTable', [function () {
+  app.directive('acTable', ['$timeout', function ($timeout) {
     return {
       restrict: 'A',
       scope: {
-        onReorder: '=',
+        onReorder: '&',
         order: '='
       },
       controller: ['$scope', function ($scope) {
@@ -25,18 +25,20 @@
         };
 
         this.reorder = function () {
-          console.log('reorder');
           $scope.onReorder();
+          $timeout(function() {
+            $scope.$root.$broadcast('acTable.order-change');
+          });
         };
       }]
     };
   }]);
 
-  app.directive('acColumn', [function () {
+  app.directive('acColumn', ['$timeout', function ($timeout) {
     function defineIcon(val, orderBy) {
       var inverse = false;
       var order = val;
-      if (order.charAt(0) === '-') {
+      if (order && order.charAt(0) === '-') {
         inverse = true;
         order = order.substring(1);
       }
@@ -46,17 +48,115 @@
       return 'sort';
     }
 
+    function addHiddenClass(element, size) {
+      element.addClass('hidden-' + size);
+    }
+
+    function addVisibleClass(element, size) {
+      element.addClass('visible-' + size);
+    }
+
+    function hideElement(element) {
+      addHiddenClass(element, 'xs');
+      addHiddenClass(element, 'sm');
+      addHiddenClass(element, 'md');
+      addHiddenClass(element, 'lg');
+    }
+
+    function showOrHideElement(element, hideOpts) {
+      if (hideOpts === 'all') {
+        hideElement(element);
+      } else {
+        var sizes = hideOpts.split(',');
+        angular.forEach(sizes, function (size) {
+          addHiddenClass(element, size)
+        });
+      }
+    }
+
+    function createDetailValue(element, elementCol, hideOpts) {
+      var value = $('<p/>');
+      var label = $('<label class="control-label" /> ');
+      label.append(element.find('ng-transclude').html() + ': ');
+      value.append(label);
+      value.append(' ');
+      value.append(elementCol.html());
+
+      if (hideOpts !== 'all') {
+        var sizes = hideOpts.split(',');
+        angular.forEach(sizes, function (size) {
+          addVisibleClass(value, size)
+        });
+      }
+
+      return value;
+    }
+
+    function applyColumnClasses(element, hideOpts) {
+      $timeout(function () {
+        if (hideOpts) {
+          showOrHideElement(element, hideOpts);
+
+          var tbody = element.parent().parent().parent().find('tbody');
+          var rows = tbody.find('tr:not(.detail-row)');
+          if (!rows) {
+            return;
+          }
+
+          for (var i = 0; i < rows.length; i++) {
+            var elementRow = $(rows[i]);
+            elementRow.addClass(i % 2 == 0 ? 'even' : 'odd');
+            var cols = elementRow.children();
+
+            var colspan = cols.length;
+
+            var column = cols.get(element.index());
+            if (column) {
+              var elementCol = $(column);
+              showOrHideElement(elementCol, hideOpts);
+
+              var detailRow = tbody.children().eq(elementRow.index() + 1);
+              if (detailRow && detailRow.hasClass('detail-row')) {
+                detailRow.children().eq(0).append(createDetailValue(element, elementCol, hideOpts));
+              } else {
+                detailRow = $('<tr class="detail-row"/>');
+                var collapse = $('<i class="fa fa-angle-right fa-fw" />');
+                var firstCol = cols.eq(0);
+                firstCol.click(function() {
+                  $(this).parent().next().toggle();
+                  var collapse = $(this).children().eq(0);
+                  collapse.toggleClass('fa-angle-right');
+                  collapse.toggleClass('fa-angle-down');
+                });
+                firstCol.prepend(collapse);
+                var detailCol = $('<td colspan="' + colspan + '"/>');
+                detailCol.append(createDetailValue(element, elementCol, hideOpts));
+                detailRow.append(detailCol);
+                elementRow.after(detailRow);
+                detailRow.hide();
+              }
+            }
+          }
+        }
+      });
+    }
+
     return {
       restrict: 'A',
       require: '^^acTable',
       transclude: true,
-      template: '<ng-transclude></ng-transclude> <i class="fa fa-{{icon}} pull-right"></i>',
+      template: '<ng-transclude></ng-transclude> <i class="fa fa-{{icon}}" ng-if="orderBy"></i>',
       scope: {
-        orderBy: '@'
+        orderBy: '@',
+        hide: '@'
       },
       link: function (scope, element, attrs, acTable) {
-        element[0].style.cursor = 'pointer';
+        if (scope.orderBy) {
+          element[0].style.cursor = 'pointer';
+        }
         scope.icon = defineIcon(acTable.currentOrder(), scope.orderBy);
+
+        applyColumnClasses(element, scope.hide);
 
         $(element).click(function () {
           if (scope.orderBy) {
@@ -68,6 +168,19 @@
 
         scope.$on('order-change', function () {
           scope.icon = defineIcon(acTable.currentOrder(), scope.orderBy);
+        });
+
+        scope.$on('acTable.order-change', function () {
+          applyColumnClasses(element, scope.hide);
+        });
+        scope.$on('acTable.list-change', function () {
+          applyColumnClasses(element, scope.hide);
+        });
+        scope.$on('acTable.page-change', function () {
+          applyColumnClasses(element, scope.hide);
+        });
+        scope.$on('acTable.total-change', function () {
+          applyColumnClasses(element, scope.hide);
         });
       }
     };
@@ -112,20 +225,16 @@
       '<li class="paginate_button next" ng-class="{\'disabled\': page === lastPage}"><a href="javascript:void(0)" ng-click="page < lastPage && next()"><i class="fa fa-angle-right"></i></a></li>' +
       '<li class="paginate_button last" ng-class="{\'disabled\': page === lastPage}"><a href="javascript:void(0)" ng-click="page < lastPage && last()"><i class="fa fa-angle-double-right"></i></a></li>' +
       '</ul>' +
-      '<div class="pager-info col-sm-6 pull-right">' +
-      '<div class="col-sm-10"><p>{{label.showing}} {{start}}-{{end}} {{label.of}} {{total}} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {{label.page}} {{page}} {{label.of}} {{lastPage}} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {{label.rowsPerPage}}:</p></div> <div class="col-sm-2"><select class="form-control" ng-model="limit"><option ng-repeat="option in limitOptions" value="{{option}}">{{option}}</option></select></div>' +
-      '</div>' +
       '</div>',
       scope: {
-        limit: '=',
+        limit: '=?',
         total: '=',
-        onPaginate: '=',
+        onPaginate: '&',
         page: '=',
-        label: '='
+        label: '=?'
       },
       link: function (scope) {
-        scope.limit = scope.limit.toString() || '10';
-        scope.limitOptions = scope.limitOptions || [5, 10, 15];
+        scope.limit = scope.limit || 10;
         scope.page = scope.page || 1;
 
         function calculateLastPage() {
@@ -141,6 +250,9 @@
           $timeout(function () {
             calculateLastPage();
             calculateStartEnd();
+            $timeout(function() {
+              scope.$root.$broadcast('acTable.total-change');
+            });
           });
         });
 
@@ -162,7 +274,7 @@
         });
 
         function calculateStartEnd() {
-          scope.start = Math.max(scope.page * scope.limit - scope.limit + 1, 0) ;
+          scope.start = Math.max(scope.page * scope.limit - scope.limit + 1, 0);
           scope.end = Math.min(scope.page * scope.limit, scope.total);
         }
 
@@ -170,6 +282,9 @@
           scope.page = page > scope.lastPage ? scope.lastPage : page < 1 ? 1 : page;
           $timeout(function () {
             scope.onPaginate();
+            $timeout(function() {
+              scope.$root.$broadcast('acTable.page-change');
+            });
           });
         };
 
