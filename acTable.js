@@ -76,7 +76,7 @@
 
     function createDetailValue(element, elementCol, hideOpts) {
       var value = $('<p/>');
-      var label = $('<label class="control-label" /> ');
+      var label = $('<label class="control-label ' + element.index() + '" /> ');
       label.append(element.find('ng-transclude').html() + ': ');
       value.append(label);
       value.append(' ');
@@ -117,7 +117,10 @@
 
               var detailRow = tbody.children().eq(elementRow.index() + 1);
               if (detailRow && detailRow.hasClass('detail-row')) {
-                detailRow.children().eq(0).append(createDetailValue(element, elementCol, hideOpts));
+                var col = detailRow.children().eq(0);
+                if (!col.children().find('.' + element.index()).length) {
+                  col.append(createDetailValue(element, elementCol, hideOpts));
+                }
               } else {
                 detailRow = $('<tr class="detail-row"/>');
                 var collapse = $('<i class="fa fa-angle-right fa-fw" />');
