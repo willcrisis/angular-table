@@ -26,7 +26,7 @@
 
         this.reorder = function () {
           $scope.onReorder();
-          $timeout(function() {
+          $timeout(function () {
             $scope.$root.$broadcast('acTable.order-change');
           });
         };
@@ -34,7 +34,7 @@
     };
   }]);
 
-  app.directive('acColumn', ['$timeout', function ($timeout) {
+  app.directive('acColumn', ['$timeout', '$compile', function ($timeout, $compile) {
     function defineIcon(val, orderBy) {
       var inverse = false;
       var order = val;
@@ -74,13 +74,18 @@
       }
     }
 
-    function createDetailValue(element, elementCol, hideOpts) {
+    function createDetailValue(element, elementCol, hideOpts, scope) {
       var value = $('<p/>');
       var label = $('<label class="control-label ' + element.index() + '" /> ');
       label.append(element.find('ng-transclude').html() + ': ');
       value.append(label);
       value.append(' ');
-      value.append(elementCol.html());
+      if (scope) {
+        value.append($compile($('<span/>').append(elementCol.html()))(scope));
+      } else {
+        value.append(elementCol.html());
+      }
+
 
       if (hideOpts !== 'all') {
         var sizes = hideOpts.split(',');
@@ -92,7 +97,7 @@
       return value;
     }
 
-    function applyColumnClasses(element, hideOpts) {
+    function applyColumnClasses(element, hideOpts, scope) {
       $timeout(function () {
         if (hideOpts) {
           showOrHideElement(element, hideOpts);
@@ -119,13 +124,13 @@
               if (detailRow && detailRow.hasClass('detail-row')) {
                 var col = detailRow.children().eq(0);
                 if (!col.children().find('.' + element.index()).length) {
-                  col.append(createDetailValue(element, elementCol, hideOpts));
+                  col.append(createDetailValue(element, elementCol, hideOpts, scope));
                 }
               } else {
                 detailRow = $('<tr class="detail-row"/>');
                 var collapse = $('<i class="fa fa-angle-right fa-fw" />');
                 var firstCol = cols.eq(0);
-                firstCol.click(function() {
+                firstCol.click(function () {
                   $(this).parent().next().toggle();
                   var collapse = $(this).children().eq(0);
                   collapse.toggleClass('fa-angle-right');
@@ -133,7 +138,7 @@
                 });
                 firstCol.prepend(collapse);
                 var detailCol = $('<td colspan="' + colspan + '"/>');
-                detailCol.append(createDetailValue(element, elementCol, hideOpts));
+                detailCol.append(createDetailValue(element, elementCol, hideOpts, scope));
                 detailRow.append(detailCol);
                 elementRow.after(detailRow);
                 detailRow.hide();
@@ -174,16 +179,16 @@
         });
 
         scope.$on('acTable.order-change', function () {
-          applyColumnClasses(element, scope.hide);
+          applyColumnClasses(element, scope.hide, scope.$parent);
         });
         scope.$on('acTable.list-change', function () {
-          applyColumnClasses(element, scope.hide);
+          applyColumnClasses(element, scope.hide, scope.$parent);
         });
         scope.$on('acTable.page-change', function () {
-          applyColumnClasses(element, scope.hide);
+          applyColumnClasses(element, scope.hide, scope.$parent);
         });
         scope.$on('acTable.total-change', function () {
-          applyColumnClasses(element, scope.hide);
+          applyColumnClasses(element, scope.hide, scope.$parent);
         });
       }
     };
@@ -253,7 +258,7 @@
           $timeout(function () {
             calculateLastPage();
             calculateStartEnd();
-            $timeout(function() {
+            $timeout(function () {
               scope.$root.$broadcast('acTable.total-change');
             });
           });
@@ -285,7 +290,7 @@
           scope.page = page > scope.lastPage ? scope.lastPage : page < 1 ? 1 : page;
           $timeout(function () {
             scope.onPaginate();
-            $timeout(function() {
+            $timeout(function () {
               scope.$root.$broadcast('acTable.page-change');
             });
           });
